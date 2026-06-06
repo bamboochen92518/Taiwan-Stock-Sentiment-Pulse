@@ -14,9 +14,12 @@ env/
 *.parquet
 *.pkl
 !report/figures/*.csv
-# Keep the Gemini sentiment cache in the repo so Streamlit Cloud cold
-# starts have a warm cache and don't burn through the free quota.
+# Keep the Gemini sentiment cache + pre-warmed price parquet files in the
+# repo so Streamlit Cloud cold starts have working data and don't depend on
+# yfinance being reachable from AWS IPs (Yahoo frequently rate-limits them).
 !/data/sentiment_cache.json
+!/data/prices/
+!/data/prices/*.parquet
 
 # Streamlit
 .streamlit/secrets.toml

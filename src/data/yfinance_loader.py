@@ -33,33 +33,55 @@ class PriceSeries:
 
 
 def load_prices(ticker: str, days: int = 180, use_cache: bool = True) -> PriceSeries:
-    """Load daily OHLCV for a ticker. Uses on-disk Parquet cache."""
-    cache_file = CACHE_DIR / f"{ticker.replace('.', '_')}.parquet"
+    """Load daily OHLCV for a ticker. Uses on-disk Parquet cache.
 
-    if use_cache and cache_file.exists():
-        df = pd.read_parquet(cache_file)
-        latest = df.index.max().to_pydatetime()
+    Strategy:
+      1. If a cache file exists and is < 1 day old, use it (fast path).
+      2. Otherwise try yfinance. On Streamlit Cloud this often fails because
+         Yahoo rate-limits AWS IP ranges, so we fall back to the (possibly
+         stale) cache rather than blowing up the whole app.
+      3. Only raise if neither cache nor network has any data.
+    """
+    cache_file = CACHE_DIR / f"{ticker.replace('.', '_')}.parquet"
+    cached_df: pd.DataFrame | None = None
+    if cache_file.exists():
+        try:
+            cached_df = pd.read_parquet(cache_file)
+        except Exception:
+            cached_df = None
+
+    if use_cache and cached_df is not None and not cached_df.empty:
+        latest = cached_df.index.max().to_pydatetime()
         if latest.tzinfo is None:
             latest = latest.replace(tzinfo=timezone.utc)
         if (datetime.now(timezone.utc) - latest).days < 1:
-            return PriceSeries(ticker=ticker, df=df.tail(days))
+            return PriceSeries(ticker=ticker, df=cached_df.tail(days))
 
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days + 30)  # buffer for holidays
-    df = yf.download(
-        ticker,
-        start=start.strftime("%Y-%m-%d"),
-        end=end.strftime("%Y-%m-%d"),
-        progress=False,
-        auto_adjust=True,
-    )
+    try:
+        df = yf.download(
+            ticker,
+            start=start.strftime("%Y-%m-%d"),
+            end=end.strftime("%Y-%m-%d"),
+            progress=False,
+            auto_adjust=True,
+        )
+    except Exception:
+        df = pd.DataFrame()
+
     if df.empty:
+        if cached_df is not None and not cached_df.empty:
+            return PriceSeries(ticker=ticker, df=cached_df.tail(days))
         raise ValueError(f"No price data returned for {ticker}")
 
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
-    df.to_parquet(cache_file)
+    try:
+        df.to_parquet(cache_file)
+    except Exception:
+        pass  # read-only FS on some hosts; non-fatal
     return PriceSeries(ticker=ticker, df=df.tail(days))
 
 
