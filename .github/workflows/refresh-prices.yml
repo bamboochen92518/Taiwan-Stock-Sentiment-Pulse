@@ -27,6 +27,8 @@ jobs:
           pip install yfinance pandas pyarrow
 
       - name: Refresh cached prices
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: python scripts/refresh_price_cache.py
 
       - name: Commit & push if changed
