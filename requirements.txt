@@ -1,0 +1,29 @@
+# Core data
+yfinance>=0.2.40
+pandas>=2.2
+numpy>=1.26
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.2
+feedparser>=6.0
+
+# NLP / sentiment
+# Default analyzer = Google Gemini 2.5 Flash (cloud, no GPU needed).
+# Set GEMINI_API_KEY in .env to enable.  Falls back to a built-in lexicon
+# analyzer automatically when the key is absent.
+google-genai>=0.3.0
+jieba>=0.42.1
+scikit-learn>=1.4
+
+# Optional local FinBERT backend (Python <= 3.12 only):
+#   pip install "transformers>=4.41" "torch>=2.2"
+
+# App + visualization
+streamlit>=1.35
+plotly>=5.22
+altair>=5.3
+matplotlib>=3.8
+
+# Utilities
+python-dotenv>=1.0
+tqdm>=4.66

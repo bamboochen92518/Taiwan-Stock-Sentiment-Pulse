@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# Data cache (only the top-level cache dir, not src/data/)
+/data/
+*.csv
+*.parquet
+*.pkl
+!report/figures/*.csv
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets
+.env
+
+# Course assignment spec (not for public repo)
+BDA_Final_Project-*.pdf
