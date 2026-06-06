@@ -3,8 +3,9 @@
 > A sentiment-driven decision-support platform for Taiwanese retail investors.
 > Final project for **Big Data Analytics (114-2)**.
 
-**Repository:** https://github.com/bamboochen92518/Taiwan-Stock-Sentiment-Pulse
-**Live demo:** https://tw-stock-sentiment-pulse.streamlit.app *(link will be live after deployment)*
+**Repository:** https://github.com/bamboochen92518/Taiwan-Stock-Sentiment-Pulse  
+
+**Live demo:** https://taiwan-stock-sentiment-pulse-zkrxus5fuarrbfcvys38rf.streamlit.app/
 
 [![Streamlit](https://img.shields.io/badge/Deploy-Streamlit%20Cloud-FF4B4B?logo=streamlit)](https://streamlit.io/cloud)
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://www.python.org/)
@@ -25,13 +26,14 @@ and are out of reach for the typical retail user.
 | Signal | Source | Purpose |
 | --- | --- | --- |
 | Price / volume / fundamentals | `yfinance` (TWSE & TPEx tickers) | Ground truth |
-| Retail discussion sentiment | PTT Stock board, Dcard 投資版 | Crowd mood & topic detection |
-| News momentum | Anue 鉅亨網 / cnYES RSS | Event-driven shocks |
+| Retail discussion sentiment | PTT /Stock board | Crowd mood & topic detection |
+| News momentum | Yahoo TW + Liberty Times + Google News RSS (per-ticker) | Event-driven shocks |
 
 The platform turns these signals into a single **PulseScore (0–100)** per ticker,
-along with an explanation in natural language. Sentiment classification is
-powered by **Google Gemini 3.5 Flash** (with a zero-dependency lexicon fallback)
-so that the system runs reliably on free-tier hosting without a local GPU.
+along with a natural-language rationale. Sentiment classification is powered by
+**Google Gemini 2.5 Flash** with a disk cache (`data/sentiment_cache.json`) so
+repeat headlines are free, and a lexicon backend that takes over automatically
+if the API quota is exhausted.
 
 ## 2. Repository structure
 
