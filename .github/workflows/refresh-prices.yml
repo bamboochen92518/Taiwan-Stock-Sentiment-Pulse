@@ -1,0 +1,38 @@
+name: Refresh price cache
+
+# Runs daily after Taiwan stock market closes (13:30 TPE = 05:30 UTC).
+# Pushes new parquet files back to main so Streamlit Cloud auto-redeploys.
+on:
+  schedule:
+    - cron: "30 6 * * 1-5"   # Mon-Fri 14:30 TPE (1h buffer after close)
+  workflow_dispatch:          # also allow manual trigger from the Actions tab
+
+permissions:
+  contents: write             # needed to commit/push back to the repo
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas pyarrow
+
+      - name: Refresh cached prices
+        run: python scripts/refresh_price_cache.py
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/prices/
+          git diff --cached --quiet || git commit -m "chore(data): nightly price cache refresh"
+          git push
