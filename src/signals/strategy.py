@@ -96,3 +96,17 @@ def build_daily_pulse(
     df["PulseScore"] = scores
     df["Signal"] = signals
     return df
+
+
+def apply_ma_crossover_signal(df: pd.DataFrame) -> pd.DataFrame:
+    """Overwrite `Signal` with a simple MA5/MA20 cross-over rule.
+
+    This is the technical-only historical baseline we use for back-testing
+    when no per-day sentiment is available. Today's row keeps its
+    PulseScore-based signal so the live demo still reflects sentiment.
+    """
+    out = df.copy()
+    cross = out["MA5"] > out["MA20"]
+    hist = cross.map({True: "BUY", False: "REDUCE"})
+    out.loc[out.index[:-1], "Signal"] = hist.iloc[:-1].values
+    return out

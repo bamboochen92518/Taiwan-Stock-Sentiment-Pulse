@@ -7,12 +7,16 @@ venv/
 env/
 .ipynb_checkpoints/
 
-# Data cache (only the top-level cache dir, not src/data/)
-/data/
+# Data cache (only the top-level cache dir, not src/data/).
+# Use /data/* (not /data/) so we can re-include specific files below.
+/data/*
 *.csv
 *.parquet
 *.pkl
 !report/figures/*.csv
+# Keep the Gemini sentiment cache in the repo so Streamlit Cloud cold
+# starts have a warm cache and don't burn through the free quota.
+!/data/sentiment_cache.json
 
 # Streamlit
 .streamlit/secrets.toml

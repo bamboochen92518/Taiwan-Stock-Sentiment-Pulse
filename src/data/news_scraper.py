@@ -1,22 +1,29 @@
-"""News headline fetcher (Anue & cnYES RSS).
+"""News headline fetcher (RSS + Google News search).
 
-Uses public RSS feeds; no API key required. Falls back gracefully if a feed
-is unreachable so the demo never crashes offline.
+Combines:
+  * A handful of stable broad-market RSS feeds (Yahoo TW, Liberty Times).
+  * Google News RSS keyword search per ticker alias — this is the high-yield
+    path because it surfaces 100+ recent articles from many publishers and
+    matches Chinese company names directly.
+
+No API key required. Falls back gracefully if any feed is unreachable.
 """
 from __future__ import annotations
 
 import argparse
+import urllib.parse
 from dataclasses import dataclass, asdict
-from datetime import datetime
-from typing import Iterable
+from datetime import datetime, timezone
 
 import feedparser
 
-# A small, curated set of free Taiwanese financial news feeds.
+_UA = "Mozilla/5.0 (compatible; TW-StockPulse/0.1)"
+
+# Public RSS feeds verified live on 2026-06-06.
 DEFAULT_FEEDS = {
-    "Anue 鉅亨 - 台股":   "https://api.cnyes.com/media/api/v1/newslist/category/tw_stock?limit=30",  # JSON, handled separately
-    "Anue 鉅亨 - 國際":   "https://news.cnyes.com/rss/cat/wd_stock",
-    "MoneyDJ 即時新聞":   "https://www.moneydj.com/funddj/rss/RssNewsMarket.xml",
+    "Yahoo TW Market":   "https://tw.stock.yahoo.com/rss?category=tw_market",
+    "Yahoo TW Index":    "https://tw.stock.yahoo.com/rss?category=index",
+    "Liberty Times Biz": "https://news.ltn.com.tw/rss/business.xml",
 }
 
 
@@ -32,8 +39,8 @@ class NewsItem:
         return asdict(self)
 
 
-def fetch_rss(url: str, source_label: str, limit: int = 30) -> list[NewsItem]:
-    feed = feedparser.parse(url)
+def fetch_rss(url: str, source_label: str, limit: int = 100) -> list[NewsItem]:
+    feed = feedparser.parse(url, request_headers={"User-Agent": _UA})
     items: list[NewsItem] = []
     for entry in feed.entries[:limit]:
         items.append(
@@ -42,28 +49,60 @@ def fetch_rss(url: str, source_label: str, limit: int = 30) -> list[NewsItem]:
                 title=entry.get("title", "").strip(),
                 summary=entry.get("summary", "").strip(),
                 link=entry.get("link", ""),
-                published=entry.get("published", datetime.utcnow().isoformat()),
+                published=entry.get("published", datetime.now(timezone.utc).isoformat()),
             )
         )
     return items
 
 
-def fetch_all(feeds: dict[str, str] | None = None) -> list[NewsItem]:
-    feeds = feeds or {k: v for k, v in DEFAULT_FEEDS.items() if v.endswith(".xml") or "rss" in v}
+def fetch_google_news(query: str, limit: int = 100) -> list[NewsItem]:
+    """Query Google News RSS for a free-text term (e.g. '台積電')."""
+    q = urllib.parse.quote(query)
+    url = f"https://news.google.com/rss/search?q={q}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+    return fetch_rss(url, source_label=f"Google News: {query}", limit=limit)
+
+
+def fetch_all(
+    feeds: dict[str, str] | None = None,
+    queries: list[str] | None = None,
+) -> list[NewsItem]:
+    """Fetch every default feed + a Google News search for each query term.
+
+    De-duplicates by article link so the same story from two sources collapses.
+    """
+    feeds = feeds or DEFAULT_FEEDS
     out: list[NewsItem] = []
     for label, url in feeds.items():
         try:
             out.extend(fetch_rss(url, label))
         except Exception as exc:  # network errors during demo
             print(f"[warn] failed to fetch {label}: {exc}")
-    return out
+
+    for q in queries or []:
+        try:
+            out.extend(fetch_google_news(q))
+        except Exception as exc:
+            print(f"[warn] failed Google News query '{q}': {exc}")
+
+    seen: set[str] = set()
+    deduped: list[NewsItem] = []
+    for it in out:
+        key = it.link or it.title
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(it)
+    return deduped
 
 
 def _cli() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--query", action="append", default=[],
+                        help="Optional Google News search term, repeatable.")
     parser.add_argument("--limit", type=int, default=10)
     args = parser.parse_args()
-    items = fetch_all()
+    items = fetch_all(queries=args.query)
+    print(f"Total items: {len(items)}")
     for it in items[: args.limit]:
         print(f"[{it.source}] {it.title}")
 

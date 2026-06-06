@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -38,10 +38,13 @@ def load_prices(ticker: str, days: int = 180, use_cache: bool = True) -> PriceSe
 
     if use_cache and cache_file.exists():
         df = pd.read_parquet(cache_file)
-        if (datetime.utcnow() - df.index.max().to_pydatetime()).days < 1:
+        latest = df.index.max().to_pydatetime()
+        if latest.tzinfo is None:
+            latest = latest.replace(tzinfo=timezone.utc)
+        if (datetime.now(timezone.utc) - latest).days < 1:
             return PriceSeries(ticker=ticker, df=df.tail(days))
 
-    end = datetime.utcnow()
+    end = datetime.now(timezone.utc)
     start = end - timedelta(days=days + 30)  # buffer for holidays
     df = yf.download(
         ticker,
@@ -73,6 +76,62 @@ def add_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     loss = -delta.clip(upper=0).rolling(14).mean()
     rs = gain / loss.replace(0, 1e-9)
     out["RSI14"] = 100 - 100 / (1 + rs)
+    return out
+
+
+# Chinese names for top TW tickers (yfinance only returns English).
+# Used to match Chinese-language news/PTT posts back to their ticker.
+TW_TICKER_ZH: dict[str, list[str]] = {
+    "2330": ["台積電", "台積", "TSMC"],
+    "2317": ["鴻海", "富士康", "Foxconn"],
+    "2454": ["聯發科", "MediaTek"],
+    "2308": ["台達電"],
+    "2412": ["中華電", "中華電信"],
+    "2882": ["國泰金", "國泰金控"],
+    "2881": ["富邦金", "富邦金控"],
+    "2891": ["中信金", "中信金控"],
+    "2603": ["長榮", "長榮海運"],
+    "2609": ["陽明", "陽明海運"],
+    "2615": ["萬海"],
+    "3008": ["大立光"],
+    "2002": ["中鋼"],
+    "1301": ["台塑"],
+    "1303": ["南亞"],
+    "2303": ["聯電", "UMC"],
+    "2379": ["瑞昱", "Realtek"],
+    "3711": ["日月光", "日月光投控"],
+    "2912": ["統一超", "7-11"],
+    "1216": ["統一"],
+    "0050": ["元大台灣50", "台灣50"],
+    "0056": ["元大高股息"],
+    "00878": ["國泰永續高股息"],
+}
+
+
+def get_ticker_aliases(ticker: str) -> list[str]:
+    """Return all known names/codes for a ticker, used for fuzzy news matching.
+
+    Includes: the full ticker (e.g. '2330.TW'), the numeric code ('2330'),
+    yfinance's English longName/shortName, and a curated Chinese-name list.
+    """
+    numeric = ticker.split(".")[0]
+    aliases: list[str] = [ticker, numeric]
+    aliases.extend(TW_TICKER_ZH.get(numeric, []))
+    try:
+        info = yf.Ticker(ticker).info
+        for key in ("longName", "shortName"):
+            name = info.get(key)
+            if name and name not in aliases:
+                aliases.append(name)
+    except Exception:
+        pass
+    # de-dupe preserving order, drop empties
+    seen: set[str] = set()
+    out: list[str] = []
+    for a in aliases:
+        if a and a not in seen:
+            seen.add(a)
+            out.append(a)
     return out
 
 

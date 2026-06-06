@@ -18,7 +18,7 @@ import json
 import re
 import time
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -133,7 +133,7 @@ def scrape_board(board: str = "Stock", pages: int = 3) -> list[PttPost]:
 
 
 def save_snapshot(posts: list[PttPost], board: str) -> Path:
-    ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     path = CACHE_DIR / f"{board}_{ts}.json"
     with path.open("w", encoding="utf-8") as f:
         json.dump([p.to_dict() for p in posts], f, ensure_ascii=False, indent=2)
