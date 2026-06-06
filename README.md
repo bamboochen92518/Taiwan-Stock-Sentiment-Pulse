@@ -89,7 +89,7 @@ python scripts/generate_report_figures.py
 
 ## 5. Report
 
-The final PDF report is in [`report/TW-StockPulse_Report.pdf`](report/TW-StockPulse_Report.pdf).
+The final PDF report is in [`report/report.pdf`](report/report.pdf).
 Source Markdown: [`report/report.md`](report/report.md).
 
 ## 6. Team & License
